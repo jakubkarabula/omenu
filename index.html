@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Electron Hello World!</title>
+  </head>
+  <body>
+    <style>
+      html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: row;
+        background: #282a36;
+        color: #f8f8f2;
+        font-family: 'Input Mono';
+        font-size: 12px;
+        overflow: hidden;
+      }
+
+      .selected {
+        color: #282a36;
+        background: #f8f8f2;      
+      }
+
+      label {
+        display: block;
+        margin-right: 15px;
+        font-size: 12px;
+        line-height: 100%;
+        white-space: nowrap;
+      }
+
+      input, input:focus {
+        float: left;
+        margin-right: 5px;
+        border: 0;
+        background: #282a36;
+        color: #f8f8f2;
+        outline: none;
+        font-family: 'Input Mono';
+        font-size: 12px;
+        z-index: 10;
+      }
+
+      #list {
+        position: relative;
+        left: 0;
+        display: flex;
+        flex-direction: row;
+        flex: 1;
+        height: 1em;
+      }
+    </style>
+
+    <script>
+      const ipcRenderer = require('electron').ipcRenderer;
+
+      let listEl;
+      let searchEl;
+
+      let allItems = [];
+      let currentItems = [];
+      let index = 0;
+      let search = '';
+      let isCustom = false;
+      let left = 0;
+      let sizes = [];
+
+      const addItems = (items) => {
+        listEl.innerHTML = '';
+        sizes = [];
+
+        items.forEach((item) => {
+          const itemEl = document.createElement('label');
+          itemEl.innerHTML = item;
+          listEl.appendChild(itemEl);
+          sizes.push(itemEl.offsetWidth);
+        })
+        
+        index = 0;
+        if (items.length > 0) {
+          document.querySelectorAll('label')[index].classList.add("selected");
+        }
+      }
+
+      ipcRenderer.on('items', function (event, data) {
+        allItems = data.items;
+        currentItems = data.items;
+        isCustom = data.custom;
+        addItems(allItems);
+      });
+
+      document.addEventListener("DOMContentLoaded", function(event) {
+        listEl = document.getElementById('list');
+        searchEl = document.getElementById('search');
+
+        searchEl.focus();
+
+        document.querySelector('body').addEventListener("keydown", (e) => {
+          if (e.key == 'Tab') {
+            if (currentItems.length > 0) {
+              document.querySelectorAll('label')[index].classList.remove("selected");
+            }
+
+            if (e.shiftKey) {
+              if (index > 0) {
+                index -= 1;
+              } else {
+                index = currentItems.length - 2;
+              }
+            } else {
+              if (index < currentItems.length - 2) {
+                index += 1;
+              } else {
+                index = 0;
+              }
+            }
+            
+            left = sizes.slice(0, index).reduce((acc, curr) => acc + curr, 0) * -1;
+            listEl.style.left = left + "px";
+
+            if (currentItems.length > 0) {
+              document.querySelectorAll('label')[index].classList.add("selected");
+            }
+          }
+
+          if (e.key == 'Escape') {
+            ipcRenderer.send('op', { name: 'close' })
+          }
+
+          if (e.key == 'Enter') {
+            ipcRenderer.send('op', { name: 'start', proc: currentItems[index] })
+          }
+        });
+
+        searchEl.addEventListener("keyup", (e) => {
+          if (searchEl.value != search) {
+            search = searchEl.value;
+            searchRegexp = new RegExp(search, 'i');
+            currentItems = allItems.filter(item => searchRegexp.test(item));
+            addItems(currentItems);
+          }          
+        });
+    });
+  </script>
+  
+  <input id="search" />
+  <div id="list" />
+
+  </body>
+</html>
